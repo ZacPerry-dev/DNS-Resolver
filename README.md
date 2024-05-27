@@ -5,8 +5,6 @@ This project is a simple DNS resolver written in Go. It aims to resolve domain n
 ## Features
 
 - **DNS Resolution:** Resolve domain names to IP addresses.
-- **Concurrency:** Utilize Go's goroutines to handle multiple DNS queries concurrently.
-- **Custom DNS Server:** Specify custom DNS servers for resolution.
 
 ## Technologies Used
 
