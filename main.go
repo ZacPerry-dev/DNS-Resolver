@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
 )
 
 /*
@@ -67,12 +69,30 @@ func createDNSMessage() DNSMessage {
 	}
 }
 
+/* Encodes the host name into a byte array with each substrings length prepended to each substring (i.e. 3dns6google3com) */
+func encodeHostName(hostName string) []byte {
+	hostNameParts := strings.Split(hostName, ".")
+	var formattedHostName []byte
+
+	for _, sub := range hostNameParts {
+		length := byte(len(sub))
+		formattedHostName = append(formattedHostName, length)
+		formattedHostName = append(formattedHostName, sub...)
+	}
+
+	formattedHostName = append(formattedHostName, 0)
+	return formattedHostName
+}
+
 func main() {
+	hostNameArg := os.Args[1]
+	encodedHostName := encodeHostName(hostNameArg)
+
 	// Create the DNS message
 	message := createDNSMessage()
 
 	// Abstract this out to a function, enable users to input domain name on the command line
-	message.Question.QNAME = []byte{3, 'w', 'w', 'w', 5, 'g', 'o', 'o', 'g', 'l', 'e', 3, 'c', 'o', 'm', 0}
+	message.Question.QNAME = encodedHostName
 	fmt.Println("DNS Message:", message)
 
 	// Create the byte string
