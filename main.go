@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 )
@@ -84,18 +86,8 @@ func encodeHostName(hostName string) []byte {
 	return formattedHostName
 }
 
-func main() {
-	hostNameArg := os.Args[1]
-	encodedHostName := encodeHostName(hostNameArg)
-
-	// Create the DNS message
-	message := createDNSMessage()
-
-	// Abstract this out to a function, enable users to input domain name on the command line
-	message.Question.QNAME = encodedHostName
-	fmt.Println("DNS Message:", message)
-
-	// Create the byte string
+/* Converts the message to a byte string, where all of it's fields are 2 bytes each and appended to one another */
+func convertToByteString(message DNSMessage) []byte {
 	dnsMessageBytes := []byte{}
 
 	// Add the header fields to the byte string
@@ -118,6 +110,46 @@ func main() {
 	dnsMessageBytes = append(dnsMessageBytes, byte(message.Question.QTYPE>>8), byte(message.Question.QTYPE))
 	dnsMessageBytes = append(dnsMessageBytes, byte(message.Question.QCLASS>>8), byte(message.Question.QCLASS))
 
+	return dnsMessageBytes
+}
+
+func main() {
+	hostNameArg := os.Args[1]
+	encodedHostName := encodeHostName(hostNameArg)
+
+	// Create the DNS message
+	message := createDNSMessage()
+	message.Question.QNAME = encodedHostName
+	fmt.Println("DNS Message:", message)
+
+	dnsMessageBytes := convertToByteString(message)
+
 	// Print the byte string in hex
 	fmt.Printf("DNS Message in hex: %x\n", dnsMessageBytes)
+
+	// In progress: sending message to google DNS server
+
+	conn, err := net.Dial("udp", "8.8.8.8:53")
+	if err != nil {
+		fmt.Println("Error connecting to the socket")
+		os.Exit(1)
+	}
+	defer conn.Close()
+
+	n, err := conn.Write(dnsMessageBytes)
+	if err != nil {
+		fmt.Println("Error writing to the socket connection")
+		os.Exit(1)
+	}
+
+	buf := make([]byte, n)
+	_, err = conn.Read(buf)
+	if err != nil {
+		fmt.Println("Error reading response into buffer")
+		os.Exit(1)
+	}
+
+	fmt.Printf("Response in hex: %x\n", buf)
+	response := binary.BigEndian.Uint16(buf[:2])
+	fmt.Println(response)
 }
