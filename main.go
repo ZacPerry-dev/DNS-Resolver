@@ -85,6 +85,9 @@ func encodeHostName(hostName string) []byte {
 	return formattedHostName
 }
 
+// TODO: decodeHostName
+// func decodeHostName() {}
+
 func encodeDNSHeader(header DNSHeader) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, header.ID)
@@ -154,21 +157,37 @@ func main() {
 	}
 
 	fmt.Printf("Response in hex: %x\n", buf)
-	responseId := binary.BigEndian.Uint16(buf[:2])
-	fmt.Println(responseId)
-
-	// responseHeader := DNSHeader{
-	// 	ID:      binary.BigEndian.Uint16(buf[:2]),
-	// 	FLAGS:   binary.BigEndian.Uint16(buf[2:4]),
-	// 	RCODE:   binary.BigEndian.Uint16(buf[4:6]),
-	// 	QDCOUNT: binary.BigEndian.Uint16(buf[6:8]),
-	// 	ANCOUNT: binary.BigEndian.Uint16(buf[8:10]),
-	// 	NSCOUNT: binary.BigEndian.Uint16(buf[10:12]),
-	// 	ARCOUNT: binary.BigEndian.Uint16(buf[12:14]),
-	// }
-
-	// fmt.Println(responseHeader)
 
 	// TODO: Parse the Response
 	// TODO: parse the header then the questions, authorities, etc.
+	// 0016 8180 0001 0002 0000 0000
+	// 0364 6e73 0667 (extra decoding needed for QNAME)
+	responseHeader := DNSHeader{
+		ID:      binary.BigEndian.Uint16(buf[0:2]),
+		FLAGS:   binary.BigEndian.Uint16(buf[2:4]),
+		QDCOUNT: binary.BigEndian.Uint16(buf[4:6]),
+		ANCOUNT: binary.BigEndian.Uint16(buf[6:8]),
+		NSCOUNT: binary.BigEndian.Uint16(buf[8:10]),
+		ARCOUNT: binary.BigEndian.Uint16(buf[10:12]),
+	}
+
+	// Extracting the flags
+	QR := (responseHeader.FLAGS >> 15) & 0x1
+	OPCODE := (responseHeader.FLAGS >> 11) & 0xF
+	AA := (responseHeader.FLAGS >> 10) & 0x1
+	TC := (responseHeader.FLAGS >> 9) & 0x1
+	RD := (responseHeader.FLAGS >> 8) & 0x1
+	RA := (responseHeader.FLAGS >> 7) & 0x1
+	Z := (responseHeader.FLAGS >> 4) & 0x7
+	RCODE := responseHeader.FLAGS & 0xF
+
+	// Printing the flags
+	fmt.Println("QR:", QR)
+	fmt.Println("OPCODE:", OPCODE)
+	fmt.Println("AA:", AA)
+	fmt.Println("TC:", TC)
+	fmt.Println("RD:", RD)
+	fmt.Println("RA:", RA)
+	fmt.Println("Z:", Z)
+	fmt.Println("RCODE:", RCODE)
 }

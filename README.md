@@ -12,10 +12,6 @@ This project is a simple DNS resolver written in Go. It aims to resolve domain n
 
 ## Getting Started
 
-### Prerequisites
-
-- Go 1.16 or higher
-
 ### Installation
 
 1. Clone the repository:
