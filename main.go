@@ -70,7 +70,7 @@ func createDNSMessage() DNSMessage {
 	}
 }
 
-/* Encodes the host name into a byte array with each substrings length prepended to each substring (i.e. 3dns6google3com) */
+// Encodes the host name into a byte array with each substrings length prepended to each substring (i.e. 3dns6google3com)
 func encodeHostName(hostName string) []byte {
 	hostNameParts := strings.Split(hostName, ".")
 	var formattedHostName []byte
@@ -88,6 +88,7 @@ func encodeHostName(hostName string) []byte {
 // TODO: decodeHostName
 // func decodeHostName() {}
 
+// Encode the header section of the DNS message
 func encodeDNSHeader(header DNSHeader) []byte {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, header.ID)
@@ -100,6 +101,7 @@ func encodeDNSHeader(header DNSHeader) []byte {
 	return buf.Bytes()
 }
 
+// Encode the question section of the DNS message
 func encodeDNSQuestion(question DNSQuestion) []byte {
 	buf := new(bytes.Buffer)
 	buf.Write(question.QNAME)
@@ -109,8 +111,8 @@ func encodeDNSQuestion(question DNSQuestion) []byte {
 	return buf.Bytes()
 }
 
+// Encode the DNS Message to be sent
 func encodeDNSMessage(message DNSMessage) []byte {
-
 	var query []byte
 
 	encodedHeader := encodeDNSHeader(message.Header)
@@ -122,19 +124,9 @@ func encodeDNSMessage(message DNSMessage) []byte {
 	return query
 }
 
-func main() {
-	hostNameArg := os.Args[1]
-	encodedHostName := encodeHostName(hostNameArg)
-
-	// Create the DNS message
-	message := createDNSMessage()
-	message.Question.QNAME = encodedHostName
-	fmt.Println("DNS Message:", message)
-
-	dnsMessageBytes := encodeDNSMessage(message)
-	fmt.Printf("DNS Message in hex: %x\n", dnsMessageBytes)
-
-	/* Abstract out later, Sending DNS Message */
+// Send request to the name server
+func sendRequest(message []byte) []byte {
+	// TODO: Don't hard code the IP and port, change later
 	conn, err := net.Dial("udp", "8.8.8.8:53")
 	if err != nil {
 		fmt.Println("Error connecting to the socket")
@@ -142,7 +134,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	_, err = conn.Write(dnsMessageBytes)
+	_, err = conn.Write(message)
 	if err != nil {
 		fmt.Println("Error writing to the socket connection")
 		os.Exit(1)
@@ -156,38 +148,83 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Response in hex: %x\n", buf)
+	return buf
+}
 
-	// TODO: Parse the Response
-	// TODO: parse the header then the questions, authorities, etc.
-	// 0016 8180 0001 0002 0000 0000
-	// 0364 6e73 0667 (extra decoding needed for QNAME)
+// Get the header from the response
+func extractResponseHeader(response []byte) DNSHeader {
 	responseHeader := DNSHeader{
-		ID:      binary.BigEndian.Uint16(buf[0:2]),
-		FLAGS:   binary.BigEndian.Uint16(buf[2:4]),
-		QDCOUNT: binary.BigEndian.Uint16(buf[4:6]),
-		ANCOUNT: binary.BigEndian.Uint16(buf[6:8]),
-		NSCOUNT: binary.BigEndian.Uint16(buf[8:10]),
-		ARCOUNT: binary.BigEndian.Uint16(buf[10:12]),
+		ID:      binary.BigEndian.Uint16(response[0:2]),
+		FLAGS:   binary.BigEndian.Uint16(response[2:4]),
+		QDCOUNT: binary.BigEndian.Uint16(response[4:6]),
+		ANCOUNT: binary.BigEndian.Uint16(response[6:8]),
+		NSCOUNT: binary.BigEndian.Uint16(response[8:10]),
+		ARCOUNT: binary.BigEndian.Uint16(response[10:12]),
 	}
 
 	// Extracting the flags
 	QR := (responseHeader.FLAGS >> 15) & 0x1
-	OPCODE := (responseHeader.FLAGS >> 11) & 0xF
-	AA := (responseHeader.FLAGS >> 10) & 0x1
-	TC := (responseHeader.FLAGS >> 9) & 0x1
-	RD := (responseHeader.FLAGS >> 8) & 0x1
-	RA := (responseHeader.FLAGS >> 7) & 0x1
-	Z := (responseHeader.FLAGS >> 4) & 0x7
+	// OPCODE := (responseHeader.FLAGS >> 11) & 0xF
+	// AA := (responseHeader.FLAGS >> 10) & 0x1
+	// TC := (responseHeader.FLAGS >> 9) & 0x1
+	// RD := (responseHeader.FLAGS >> 8) & 0x1
+	// RA := (responseHeader.FLAGS >> 7) & 0x1
+	// Z := (responseHeader.FLAGS >> 4) & 0x7
 	RCODE := responseHeader.FLAGS & 0xF
 
 	// Printing the flags
 	fmt.Println("QR:", QR)
-	fmt.Println("OPCODE:", OPCODE)
-	fmt.Println("AA:", AA)
-	fmt.Println("TC:", TC)
-	fmt.Println("RD:", RD)
-	fmt.Println("RA:", RA)
-	fmt.Println("Z:", Z)
 	fmt.Println("RCODE:", RCODE)
+
+	// Check this is a response
+	if QR != 1 {
+		fmt.Println("Error with the response: QR does not indicate this message is a response (1)...")
+		os.Exit(1)
+	}
+
+	switch RCODE {
+	case 1:
+		fmt.Println("RCODE ERROR: 1 (Format Error), Name server was unable to interpret the query...")
+		os.Exit(1)
+	case 2:
+		fmt.Println("RCODE ERROR: 2 (Server Error), Name server was unable to process the query due to a server error...")
+		os.Exit(1)
+	case 3:
+		fmt.Println("RCODE ERROR: 3 (Name Error), Domain referenced in the query does not exist...")
+		os.Exit(1)
+	case 4:
+		fmt.Println("RCODE ERROR: 4 (Not Implemented), The name server does not support this kind of query...")
+		os.Exit(1)
+	case 5:
+		fmt.Println("RCODE ERROR: 5 (Refused), The name server refuses to perform this operation for policy reasons...")
+		os.Exit(1)
+	default:
+	}
+
+	return responseHeader
+}
+
+func main() {
+	hostNameArg := os.Args[1]
+	encodedHostName := encodeHostName(hostNameArg)
+
+	// Create the DNS message
+	message := createDNSMessage()
+	message.Question.QNAME = encodedHostName
+
+	// Encode the Message
+	dnsMessageBytes := encodeDNSMessage(message)
+	fmt.Printf("DNS Message in hex: %x\n", dnsMessageBytes)
+
+	// Send
+	response := sendRequest(dnsMessageBytes)
+	fmt.Printf("Response in hex: %x\n", response)
+
+	// decode response
+	responseHeader := extractResponseHeader(response)
+	fmt.Println("RESPONSE HEADER: ", responseHeader)
+
+	// TODO: Continue parsing the response, get the question, answer, etc.
+	// question: 0364 6e73 0667 (extra decoding needed for QNAME)
+
 }
