@@ -25,7 +25,7 @@ type DNSHeader struct {
 	// RD      uint16
 	// RA      uint16
 	// Z       uint16
-	RCODE   uint16
+	// RCODE   uint16
 	QDCOUNT uint16
 	ANCOUNT uint16
 	NSCOUNT uint16
@@ -52,7 +52,6 @@ func createDNSMessage() DNSMessage {
 	header := DNSHeader{
 		ID:      22, //uint16(rand.Intn(65535)), make random at some point. 22 for now
 		FLAGS:   0x0100,
-		RCODE:   0,
 		QDCOUNT: 1,
 		ANCOUNT: 0,
 		NSCOUNT: 0,
@@ -86,22 +85,38 @@ func encodeHostName(hostName string) []byte {
 	return formattedHostName
 }
 
-/* Converts the message to a byte string, where all of it's fields are 2 bytes each and appended to one another */
-func convertToByteString(message DNSMessage) []byte {
+func encodeDNSHeader(header DNSHeader) []byte {
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, message.Header.ID)
-	binary.Write(buf, binary.BigEndian, message.Header.FLAGS)
-	binary.Write(buf, binary.BigEndian, message.Header.RCODE)
-	binary.Write(buf, binary.BigEndian, message.Header.QDCOUNT)
-	binary.Write(buf, binary.BigEndian, message.Header.ANCOUNT)
-	binary.Write(buf, binary.BigEndian, message.Header.NSCOUNT)
-	binary.Write(buf, binary.BigEndian, message.Header.ARCOUNT)
-
-	buf.Write(message.Question.QNAME)
-	binary.Write(buf, binary.BigEndian, message.Question.QTYPE)
-	binary.Write(buf, binary.BigEndian, message.Question.QCLASS)
+	binary.Write(buf, binary.BigEndian, header.ID)
+	binary.Write(buf, binary.BigEndian, header.FLAGS)
+	binary.Write(buf, binary.BigEndian, header.QDCOUNT)
+	binary.Write(buf, binary.BigEndian, header.ANCOUNT)
+	binary.Write(buf, binary.BigEndian, header.NSCOUNT)
+	binary.Write(buf, binary.BigEndian, header.ARCOUNT)
 
 	return buf.Bytes()
+}
+
+func encodeDNSQuestion(question DNSQuestion) []byte {
+	buf := new(bytes.Buffer)
+	buf.Write(question.QNAME)
+	binary.Write(buf, binary.BigEndian, question.QTYPE)
+	binary.Write(buf, binary.BigEndian, question.QCLASS)
+
+	return buf.Bytes()
+}
+
+func encodeDNSMessage(message DNSMessage) []byte {
+
+	var query []byte
+
+	encodedHeader := encodeDNSHeader(message.Header)
+	encodedQuestion := encodeDNSQuestion(message.Question)
+
+	query = append(query, encodedHeader...)
+	query = append(query, encodedQuestion...)
+
+	return query
 }
 
 func main() {
@@ -113,13 +128,10 @@ func main() {
 	message.Question.QNAME = encodedHostName
 	fmt.Println("DNS Message:", message)
 
-	dnsMessageBytes := convertToByteString(message)
-
-	// Print the byte string in hex
+	dnsMessageBytes := encodeDNSMessage(message)
 	fmt.Printf("DNS Message in hex: %x\n", dnsMessageBytes)
 
-	// In progress: sending message to google DNS server
-
+	/* Abstract out later, Sending DNS Message */
 	conn, err := net.Dial("udp", "8.8.8.8:53")
 	if err != nil {
 		fmt.Println("Error connecting to the socket")
@@ -133,6 +145,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	// read the response into a buffer
 	buf := make([]byte, 512)
 	_, err = conn.Read(buf)
 	if err != nil {
@@ -145,7 +158,17 @@ func main() {
 	fmt.Println(responseId)
 
 	// responseHeader := DNSHeader{
-	// 	ID:    binary.BigEndian.Uint16(buf[0:2]),
-	// 	FLAGS: binary.BigEndian.Uint16(buf[2:4]),
+	// 	ID:      binary.BigEndian.Uint16(buf[:2]),
+	// 	FLAGS:   binary.BigEndian.Uint16(buf[2:4]),
+	// 	RCODE:   binary.BigEndian.Uint16(buf[4:6]),
+	// 	QDCOUNT: binary.BigEndian.Uint16(buf[6:8]),
+	// 	ANCOUNT: binary.BigEndian.Uint16(buf[8:10]),
+	// 	NSCOUNT: binary.BigEndian.Uint16(buf[10:12]),
+	// 	ARCOUNT: binary.BigEndian.Uint16(buf[12:14]),
 	// }
+
+	// fmt.Println(responseHeader)
+
+	// TODO: Parse the Response
+	// TODO: parse the header then the questions, authorities, etc.
 }
