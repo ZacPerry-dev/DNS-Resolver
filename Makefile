@@ -1,19 +1,22 @@
 .DEFAULT_GOAL := build
 
 fmt: 
-	go fmt ./...
+	@go fmt ./...
 
 lint: fmt
-	golint ./...
+	@golint ./...
 
 vet: fmt
-	go vet ./...
+	@go vet ./...
 
 build: vet
-	go build -o bin/main main.go
+	@go build -o bin/main main.go
 
 clean:
-	go clean
+	@go clean
 	rm bin/main
+
+test:
+	@go test ./...
 
 .PHONY: fmt lint vet build clean

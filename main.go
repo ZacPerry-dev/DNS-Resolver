@@ -141,7 +141,7 @@ func sendRequest(message []byte) []byte {
 	}
 
 	// read the response into a buffer
-	buf := make([]byte, 512)
+	buf := make([]byte, 128)
 	_, err = conn.Read(buf)
 	if err != nil {
 		fmt.Println("Error reading response into buffer")
