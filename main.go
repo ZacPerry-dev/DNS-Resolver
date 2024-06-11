@@ -86,7 +86,9 @@ func encodeHostName(hostName string) []byte {
 }
 
 // TODO: decodeHostName
-// func decodeHostName() {}
+func decodeHostName(qname []byte) string {
+	return ""
+}
 
 // Encode the header section of the DNS message
 func encodeDNSHeader(header DNSHeader) []byte {
@@ -182,6 +184,7 @@ func extractResponseHeader(response []byte) DNSHeader {
 		os.Exit(1)
 	}
 
+	// check for any errors returned within the header
 	switch RCODE {
 	case 1:
 		fmt.Println("RCODE ERROR: 1 (Format Error), Name server was unable to interpret the query...")
@@ -202,6 +205,14 @@ func extractResponseHeader(response []byte) DNSHeader {
 	}
 
 	return responseHeader
+}
+
+func extractResponseQuestion(response []byte) DNSQuestion {
+
+	// decode the QNAME
+	// TODO
+	responseQuestion := DNSQuestion{}
+	return responseQuestion
 }
 
 func main() {
@@ -226,5 +237,6 @@ func main() {
 
 	// TODO: Continue parsing the response, get the question, answer, etc.
 	// question: 0364 6e73 0667 (extra decoding needed for QNAME)
-
+	responseQuestion := extractResponseQuestion(response)
+	fmt.Println("RESPONSE QUESTION", responseQuestion)
 }

@@ -61,3 +61,6 @@ func TestEncodeDNSMessage(t *testing.T) {
 		t.Errorf("Expected the encoded DNS Message bytes to be %v. Instead, found %v\n", expectedEncodedMessage, encodedMessage)
 	}
 }
+
+// TODO
+//func TestExtractResponseHeader() { }
