@@ -153,12 +153,6 @@ func extractResponseHeader(response []byte) DNSHeader {
 
 	// Extracting the flags
 	QR := (responseHeader.FLAGS >> 15) & 0x1
-	// OPCODE := (responseHeader.FLAGS >> 11) & 0xF
-	// AA := (responseHeader.FLAGS >> 10) & 0x1
-	// TC := (responseHeader.FLAGS >> 9) & 0x1
-	// RD := (responseHeader.FLAGS >> 8) & 0x1
-	// RA := (responseHeader.FLAGS >> 7) & 0x1
-	// Z := (responseHeader.FLAGS >> 4) & 0x7
 	RCODE := responseHeader.FLAGS & 0xF
 
 	// Printing the flags
