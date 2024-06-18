@@ -211,7 +211,6 @@ func decodeQName(data []byte, offset int) (string, int) {
 func extractResponseQuestion(response []byte) DNSQuestion {
 
 	// Inital offset is the byte in which the header ends.
-	responseQuestion := DNSQuestion{}
 	offset := 12
 
 	qname, newOffset := decodeQName(response, offset)
@@ -220,10 +219,12 @@ func extractResponseQuestion(response []byte) DNSQuestion {
 	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
 	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
 
-	fmt.Printf("Decoded QNAME: %s -> Offset: %d\n", qname, newOffset)
-	fmt.Printf("Deocded QTYPE: %d\n", qtype)
-	fmt.Printf("Deocded QCLASS: %d\n", qclass)
-	return responseQuestion
+	// NOTE: Re-encoding the QNAME into a byte array to represent the string.This is kind of weird and I may need to change later
+	return DNSQuestion{
+		QNAME:  encodeQName(qname),
+		QTYPE:  qtype,
+		QCLASS: qclass,
+	}
 }
 
 func main() {
@@ -242,6 +243,7 @@ func main() {
 	response := sendRequest(dnsMessageBytes)
 	fmt.Printf("Response in hex: %x\n", response)
 
+	// NOTE: Consider decoding into a DNSMessage struct instance
 	// decode response header
 	responseHeader := extractResponseHeader(response)
 	fmt.Println("RESPONSE HEADER: ", responseHeader)
