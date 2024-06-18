@@ -5,21 +5,21 @@ import (
 	"testing"
 )
 
-func TestEncodeHostName(t *testing.T) {
+func TestEncodeQName(t *testing.T) {
 	hostName := "dns.google.com"
 	targetArray := []byte{3, 100, 110, 115, 6, 103, 111, 111, 103, 108, 101, 3, 99, 111, 109, 0}
 
-	encodedHostName := encodeHostName(hostName)
+	encodedHostName := encodeQName(hostName)
 
 	if !bytes.Equal(encodedHostName, targetArray) {
 		t.Errorf("Expected 3dns6google3com0. Got: %s \n", string(encodedHostName))
 	}
 }
 
-// TODO
-func TestDecodeHostName(t *testing.T) {
+/* TODO: Write decode QName test
+func TestDecodeQName(t *testing.T) {
 
-}
+}*/
 
 func TestEncodeDNSHeader(t *testing.T) {
 	expectedEncodedHeader := []byte{0, 22, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0}
@@ -36,7 +36,7 @@ func TestEncodeDNSQuestion(t *testing.T) {
 	expectedEncodedQuestion := []byte{3, 100, 110, 115, 6, 103, 111, 111, 103, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1}
 	hostName := "dns.google.com"
 
-	encodedHostName := encodeHostName(hostName)
+	encodedHostName := encodeQName(hostName)
 	dnsMessage := createDNSMessage()
 
 	dnsMessage.Question.QNAME = encodedHostName
@@ -51,7 +51,7 @@ func TestEncodeDNSMessage(t *testing.T) {
 	expectedEncodedMessage := []byte{0, 22, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 3, 100, 110, 115, 6, 103, 111, 111, 103, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1}
 	hostName := "dns.google.com"
 
-	encodedHostName := encodeHostName(hostName)
+	encodedHostName := encodeQName(hostName)
 	dnsMessage := createDNSMessage()
 	dnsMessage.Question.QNAME = encodedHostName
 

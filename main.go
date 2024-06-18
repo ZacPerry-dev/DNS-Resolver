@@ -16,16 +16,8 @@ Information for structs was found here:
 // Struct for DNS Header
 // QR, OPCODE, AA, TC, RD, RA, Z, and RCODE are packed into a "FLAGS" field (2bytes)(16bits)
 type DNSHeader struct {
-	ID    uint16
-	FLAGS uint16
-	// QR      uint16
-	// OPCODE  uint16
-	// AA      uint16
-	// TC      uint16
-	// RD      uint16
-	// RA      uint16
-	// Z       uint16
-	// RCODE   uint16
+	ID      uint16
+	FLAGS   uint16
 	QDCOUNT uint16
 	ANCOUNT uint16
 	NSCOUNT uint16
@@ -71,7 +63,7 @@ func createDNSMessage() DNSMessage {
 }
 
 // Encodes the host name into a byte array with each substrings length prepended to each substring (i.e. 3dns6google3com)
-func encodeHostName(hostName string) []byte {
+func encodeQName(hostName string) []byte {
 	hostNameParts := strings.Split(hostName, ".")
 	var formattedHostName []byte
 
@@ -83,11 +75,6 @@ func encodeHostName(hostName string) []byte {
 
 	formattedHostName = append(formattedHostName, 0)
 	return formattedHostName
-}
-
-// TODO: decodeHostName
-func decodeHostName(qname []byte) string {
-	return ""
 }
 
 // Encode the header section of the DNS message
@@ -207,17 +194,47 @@ func extractResponseHeader(response []byte) DNSHeader {
 	return responseHeader
 }
 
+func decodeQName(data []byte, offset int) (string, int) {
+	var qnamePieces []string
+	saveOffset := offset
+	// loop until we hit the last null byte (0)
+	for {
+		length := int(data[offset])
+		if length == 0 {
+			break
+		}
+		offset++
+		qnamePieces = append(qnamePieces, string(data[offset:offset+length]))
+
+		offset += length
+	}
+	fullQname := strings.Join(qnamePieces, ".")
+	finalOffset := offset - saveOffset + 1
+
+	return fullQname, finalOffset
+}
+
 func extractResponseQuestion(response []byte) DNSQuestion {
 
-	// decode the QNAME
-	// TODO
+	// Inital offset is the byte in which the header ends.
 	responseQuestion := DNSQuestion{}
+	offset := 12
+
+	qname, newOffset := decodeQName(response, offset)
+	offset = offset + newOffset
+
+	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
+	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
+
+	fmt.Printf("Decoded QNAME: %s -> Offset: %d\n", qname, newOffset)
+	fmt.Printf("Deocded QTYPE: %d\n", qtype)
+	fmt.Printf("Deocded QCLASS: %d\n", qclass)
 	return responseQuestion
 }
 
 func main() {
 	hostNameArg := os.Args[1]
-	encodedHostName := encodeHostName(hostNameArg)
+	encodedHostName := encodeQName(hostNameArg)
 
 	// Create the DNS message
 	message := createDNSMessage()
@@ -227,16 +244,17 @@ func main() {
 	dnsMessageBytes := encodeDNSMessage(message)
 	fmt.Printf("DNS Message in hex: %x\n", dnsMessageBytes)
 
-	// Send
+	// Send request
 	response := sendRequest(dnsMessageBytes)
 	fmt.Printf("Response in hex: %x\n", response)
 
-	// decode response
+	// decode response header
 	responseHeader := extractResponseHeader(response)
 	fmt.Println("RESPONSE HEADER: ", responseHeader)
 
-	// TODO: Continue parsing the response, get the question, answer, etc.
-	// question: 0364 6e73 0667 (extra decoding needed for QNAME)
+	// decode the response question
 	responseQuestion := extractResponseQuestion(response)
 	fmt.Println("RESPONSE QUESTION", responseQuestion)
+
+	// TODO: Parse the response, get the answer, etc.
 }
