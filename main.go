@@ -188,6 +188,9 @@ func extractResponseHeader(response []byte) DNSHeader {
 	return responseHeader
 }
 
+// TODO
+// Need to both rename this and refactor to handle any "name", both for the question and answer from the response.
+// SUpport compression
 func decodeQName(data []byte, offset int) (string, int) {
 	var qnamePieces []string
 	saveOffset := offset
@@ -195,20 +198,22 @@ func decodeQName(data []byte, offset int) (string, int) {
 	for {
 		length := int(data[offset])
 		if length == 0 {
+			offset++
 			break
 		}
+
 		offset++
 		qnamePieces = append(qnamePieces, string(data[offset:offset+length]))
-
 		offset += length
 	}
+
 	fullQname := strings.Join(qnamePieces, ".")
 	finalOffset := offset - saveOffset + 1
 
 	return fullQname, finalOffset
 }
 
-func extractResponseQuestion(response []byte) DNSQuestion {
+func extractResponseQuestion(response []byte) (DNSQuestion, int) {
 
 	// Inital offset is the byte in which the header ends.
 	offset := 12
@@ -224,7 +229,21 @@ func extractResponseQuestion(response []byte) DNSQuestion {
 		QNAME:  encodeQName(qname),
 		QTYPE:  qtype,
 		QCLASS: qclass,
-	}
+	}, offset
+}
+
+// Decode the asnwer
+// Use the QName function to get the name. Rest of the things can be read easily with bit shifting
+func decodeAnswer(data []byte, offset int) (string, int) {
+
+	return "", 1
+}
+
+// Extract the answer from the response
+func extractResponseAnswer(response []byte, offset int) []byte {
+	// Figure out what I need to extract from the answer, i think there's two things?
+	// Account for the compression
+	return nil
 }
 
 func main() {
@@ -249,8 +268,11 @@ func main() {
 	fmt.Println("RESPONSE HEADER: ", responseHeader)
 
 	// decode the response question
-	responseQuestion := extractResponseQuestion(response)
+	responseQuestion, offset := extractResponseQuestion(response)
 	fmt.Println("RESPONSE QUESTION", responseQuestion)
+	fmt.Println("Offset from the question response: ", offset)
 
 	// TODO: Parse the response, get the answer, etc.
+	extractResponseAnswer(response, offset)
+
 }
