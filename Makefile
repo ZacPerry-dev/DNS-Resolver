@@ -16,7 +16,4 @@ clean:
 	@go clean
 	rm bin/main
 
-test:
-	@go test ./...
-
 .PHONY: fmt lint vet build clean
