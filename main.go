@@ -9,6 +9,17 @@ import (
 	"strings"
 )
 
+// TODO (not including making this resolve any host or domain name, thats later :D )
+/*
+  [ ] Refactor function returns: they are inconsistent
+  [ ] Decode the RDATA in the response Answer (based on the TYPE)
+      [x] Ensure I am getting all of the IP addresses
+        - Had to loop and decode however many answers are returned
+  [ ] Simplify logic for decoding the Answer, along with the the following sections
+      - Lots of this can be used for the following sections as well
+  [ ] Decode the rest of the response sections
+*/
+
 /*
 Information for structs was found here:
 	https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
@@ -29,6 +40,15 @@ type DNSQuestion struct {
 	QNAME  []byte
 	QTYPE  uint16
 	QCLASS uint16
+}
+
+type DNSAnswer struct {
+	NAME     []byte
+	TYPE     uint16
+	CLASS    uint16
+	TTL      uint32
+	RDLENGTH uint16
+	RDATA    []byte //TODO: maybe change to string later, need to decode this first depending on it's format
 }
 
 // Struct for the DNS Message
@@ -197,8 +217,8 @@ func decodeQName(data []byte, offset int) (string, int) {
 	// loop until we hit the last null byte (0)
 	for {
 		length := int(data[offset])
+
 		if length == 0 {
-			offset++
 			break
 		}
 
@@ -224,6 +244,8 @@ func extractResponseQuestion(response []byte) (DNSQuestion, int) {
 	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
 	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
 
+	offset += 4
+
 	// NOTE: Re-encoding the QNAME into a byte array to represent the string.This is kind of weird and I may need to change later
 	return DNSQuestion{
 		QNAME:  encodeQName(qname),
@@ -232,18 +254,62 @@ func extractResponseQuestion(response []byte) (DNSQuestion, int) {
 	}, offset
 }
 
-// Decode the asnwer
-// Use the QName function to get the name. Rest of the things can be read easily with bit shifting
-func decodeAnswer(data []byte, offset int) (string, int) {
+// Refactor this, just testing with it for now, will clean later
+func testAnswerDecode(data []byte, offset int) ([]byte, int) {
+	var qnamePieces []byte
+	saveOffset := offset
+	jumped := false
 
-	return "", 1
+	for {
+		length := int(data[offset])
+
+		if length == 0 {
+			qnamePieces = append(qnamePieces, 0)
+			offset++
+			break
+		}
+
+		// Check if length indicates a pointer (first two bits are 11)
+		if length&0xC0 == 0xC0 {
+			if !jumped {
+				saveOffset = offset + 2 // Save offset before jumping
+			}
+			jumped = true
+			offset = int(binary.BigEndian.Uint16(data[offset:offset+2])) & 0x3FFF
+			continue
+		}
+
+		offset++
+		qnamePieces = append(qnamePieces, data[offset:offset+length]...)
+		offset += length
+	}
+
+	if jumped {
+		return qnamePieces, saveOffset
+	}
+	return qnamePieces, offset
 }
 
 // Extract the answer from the response
-func extractResponseAnswer(response []byte, offset int) []byte {
-	// Figure out what I need to extract from the answer, i think there's two things?
-	// Account for the compression
-	return nil
+func extractResponseAnswer(response []byte, offset int) (DNSAnswer, int) {
+
+	name, newOffset := testAnswerDecode(response, offset)
+	offset = newOffset
+	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
+	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
+	ttl := binary.BigEndian.Uint32(response[offset+4 : offset+8])
+	rdlength := binary.BigEndian.Uint16(response[offset+8 : offset+10])
+	rdata := response[offset+10 : offset+10+int(rdlength)]
+	offset += 10 + int(rdlength)
+
+	return DNSAnswer{
+		NAME:     name,
+		TYPE:     qtype,
+		CLASS:    qclass,
+		TTL:      ttl,
+		RDLENGTH: rdlength,
+		RDATA:    rdata,
+	}, offset
 }
 
 func main() {
@@ -269,10 +335,17 @@ func main() {
 
 	// decode the response question
 	responseQuestion, offset := extractResponseQuestion(response)
-	fmt.Println("RESPONSE QUESTION", responseQuestion)
-	fmt.Println("Offset from the question response: ", offset)
+	fmt.Println("RESPONSE QUESTION: ", responseQuestion)
 
-	// TODO: Parse the response, get the answer, etc.
-	extractResponseAnswer(response, offset)
+	fmt.Println("Response Header ANCOUNT: ", responseHeader.ANCOUNT)
 
+	// Need to loop here in order to get all of the Answers, since there can be more than one (based on the header ANCOUNT)
+	answers := make([]DNSAnswer, 0)
+	for range responseHeader.ANCOUNT {
+		responseAnswer, newOffset := extractResponseAnswer(response, offset)
+		answers = append(answers, responseAnswer)
+		offset = newOffset
+	}
+	fmt.Println("RESPONSE ANSWER: ", answers)
+	fmt.Println("NEW OFFSET: ", offset)
 }
