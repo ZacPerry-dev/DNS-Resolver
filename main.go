@@ -10,13 +10,13 @@ import (
 )
 
 // TODO (not including making this resolve any host or domain name, thats later :D )
-/* 
-  [ ] Refactor function returns: they are inconsistent 
-  [ ] Decode the RDATA in the response Answer (based on the TYPE) 
+/*
+  [ ] Refactor function returns: they are inconsistent
+  [ ] Decode the RDATA in the response Answer (based on the TYPE)
       [x] Ensure I am getting all of the IP addresses
         - Had to loop and decode however many answers are returned
   [ ] Simplify logic for decoding the Answer, along with the the following sections
-      - Lots of this can be used for the following sections as well 
+      - Lots of this can be used for the following sections as well
   [ ] Decode the rest of the response sections
 */
 
@@ -44,12 +44,12 @@ type DNSQuestion struct {
 
 // Represents the Answer, Auth, and Additionals
 type DNSRecord struct {
-  NAME     []byte
-  TYPE     uint16
-  CLASS    uint16
-  TTL      uint32
-  RDLENGTH uint16
-  RDATA    []byte   //TODO: maybe change to string later, need to decode this first depending on it's format
+	NAME     []byte
+	TYPE     uint16
+	CLASS    uint16
+	TTL      uint32
+	RDLENGTH uint16
+	RDATA    []byte //TODO: maybe change to string later, need to decode this first depending on it's format
 }
 
 // Struct for the DNS Message
@@ -219,10 +219,10 @@ func decodeQName(data []byte, offset int) (string, int) {
 	for {
 		length := int(data[offset])
 
-    if length == 0 {
-      break
+		if length == 0 {
+			break
 		}
-    
+
 		offset++
 		qnamePieces = append(qnamePieces, string(data[offset:offset+length]))
 		offset += length
@@ -245,7 +245,7 @@ func extractResponseQuestion(response []byte) (DNSQuestion, int) {
 	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
 	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
 
-  offset += 4
+	offset += 4
 
 	// NOTE: Re-encoding the QNAME into a byte array to represent the string.This is kind of weird and I may need to change later
 	return DNSQuestion{
@@ -256,8 +256,8 @@ func extractResponseQuestion(response []byte) (DNSQuestion, int) {
 }
 
 // Refactor this, just testing with it for now, will clean later
-func testAnswerDecode(data []byte, offset int) ([]byte, int) { 
-  var qnamePieces []byte
+func testAnswerDecode(data []byte, offset int) ([]byte, int) {
+	var qnamePieces []byte
 	saveOffset := offset
 	jumped := false
 
@@ -265,7 +265,7 @@ func testAnswerDecode(data []byte, offset int) ([]byte, int) {
 		length := int(data[offset])
 
 		if length == 0 {
-      qnamePieces = append(qnamePieces, 0)
+			qnamePieces = append(qnamePieces, 0)
 			offset++
 			break
 		}
@@ -293,54 +293,53 @@ func testAnswerDecode(data []byte, offset int) ([]byte, int) {
 
 // Decode the RData into a string based on the qtype
 func decodeAnswerRData(rdata []byte, qtype uint16, rdlength uint16, offset int) (string, int) {
-  // check for the different qtype values to determine how to decode this
-  //A Type
-  switch qtype {
-  // TYPE A - IPV4
-  case 1:
-    fmt.Println("TYPE A")
-    
-  
-  // TYPE NS - Nameserver (TODO Later)
-  case 2:
-    fmt.Println("TYPE NS")
+	// check for the different qtype values to determine how to decode this
+	//A Type
+	switch qtype {
+	// TYPE A - IPV4
+	case 1:
+		fmt.Println("TYPE A")
 
-  // TYPE AAAA - IPV6
-  case 28:
-    fmt.Println("TYPE AAAA")
-  
-  // TYPE CNAME - Cannonical name -> points to a domain name that points to the IP address or another CNAME
-  case 5:
-    fmt.Println("Type CNAME")  
+	// TYPE NS - Nameserver (TODO Later)
+	case 2:
+		fmt.Println("TYPE NS")
 
-  default:
-    fmt.Println("NOT SUPPORTED")
-  }
+	// TYPE AAAA - IPV6
+	case 28:
+		fmt.Println("TYPE AAAA")
 
-  return "", 1
+	// TYPE CNAME - Cannonical name -> points to a domain name that points to the IP address or another CNAME
+	case 5:
+		fmt.Println("Type CNAME")
+
+	default:
+		fmt.Println("NOT SUPPORTED")
+	}
+
+	return "", 1
 }
 
 // Extract the answer from the response
 func extractResponseAnswer(response []byte, offset int) (DNSRecord, int) {
-  name, newOffset := testAnswerDecode(response, offset)
-  offset = newOffset
-  qtype := binary.BigEndian.Uint16(response[offset : offset+2])
+	name, newOffset := testAnswerDecode(response, offset)
+	offset = newOffset
+	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
 	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
 	ttl := binary.BigEndian.Uint32(response[offset+4 : offset+8])
 	rdlength := binary.BigEndian.Uint16(response[offset+8 : offset+10])
 	rdata := response[offset+10 : offset+10+int(rdlength)]
 	offset += 10 + int(rdlength)
-  
-  decodeAnswerRData(rdata, qtype, rdlength, offset)
-  
-  return DNSRecord {
-    NAME: name, 
-    TYPE: qtype,
-    CLASS: qclass,
-    TTL: ttl, 
-    RDLENGTH: rdlength,
-    RDATA: rdata,
-  }, offset
+
+	decodeAnswerRData(rdata, qtype, rdlength, offset)
+
+	return DNSRecord{
+		NAME:     name,
+		TYPE:     qtype,
+		CLASS:    qclass,
+		TTL:      ttl,
+		RDLENGTH: rdlength,
+		RDATA:    rdata,
+	}, offset
 }
 
 func main() {
@@ -366,17 +365,17 @@ func main() {
 
 	// decode the response question
 	responseQuestion, offset := extractResponseQuestion(response)
-  fmt.Println("RESPONSE QUESTION: ", responseQuestion)
-  
-  fmt.Println("Response Header ANCOUNT: ", responseHeader.ANCOUNT)
+	fmt.Println("RESPONSE QUESTION: ", responseQuestion)
 
-  // Need to loop here in order to get all of the Answers, since there can be more than one (based on the header ANCOUNT)
-  answers := make([]DNSRecord, 0)
-  for range(responseHeader.ANCOUNT) {
-      responseAnswer, newOffset := extractResponseAnswer(response, offset)
-      answers = append(answers, responseAnswer)
-      offset = newOffset
-  }
-  fmt.Println("RESPONSE ANSWER: ", answers)
-  fmt.Println("NEW OFFSET: ", offset)
+	fmt.Println("Response Header ANCOUNT: ", responseHeader.ANCOUNT)
+
+	// Need to loop here in order to get all of the Answers, since there can be more than one (based on the header ANCOUNT)
+	answers := make([]DNSRecord, 0)
+	for range responseHeader.ANCOUNT {
+		responseAnswer, newOffset := extractResponseAnswer(response, offset)
+		answers = append(answers, responseAnswer)
+		offset = newOffset
+	}
+	fmt.Println("RESPONSE ANSWER: ", answers)
+	fmt.Println("NEW OFFSET: ", offset)
 }
