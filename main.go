@@ -10,13 +10,13 @@ import (
 )
 
 /*
-  TODO: 
+  TODO:
     [] Get to work for any host or domain name
       - Includes deocding different data types (IPv6, etc)
       - Updating to run in a loop in case it needs multiple contact points to resolve
     [] Try and read the response into the DNSResponse struct
     [] review but if valid, move functions out to different files for sanity
-    [] Update tests (they are commented out for now) 
+    [] Update tests (they are commented out for now)
 */
 
 /*
@@ -53,16 +53,16 @@ type DNSRecord struct {
 
 // Struct for the DNS Message
 type DNSMessage struct {
-	Header      DNSHeader
-	Question    DNSQuestion
+	Header   DNSHeader
+	Question DNSQuestion
 }
 
 type DNSResponse struct {
-  Header      DNSHeader
-  Question    DNSQuestion
-  Answer      DNSRecord 
-	Authority   DNSRecord
-	Additional  DNSRecord
+	Header     DNSHeader
+	Question   DNSQuestion
+	Answer     DNSRecord
+	Authority  DNSRecord
+	Additional DNSRecord
 }
 
 func createDNSMessage() DNSMessage {
@@ -213,10 +213,7 @@ func extractResponseHeader(response []byte) DNSHeader {
 	return responseHeader
 }
 
-// TODO
-// Need to both rename this and refactor to handle any "name", both for the question and answer from the response.
-// SUpport compression
-func decodeQName(data []byte, offset int) ([]byte, int) {
+func decodeName(data []byte, offset int) ([]byte, int) {
 	var qnamePieces []byte
 	saveOffset := offset
 	jumped := false
@@ -226,7 +223,7 @@ func decodeQName(data []byte, offset int) ([]byte, int) {
 
 		if length == 0 {
 			qnamePieces = append(qnamePieces, 0)
-      offset++
+			offset++
 			break
 		}
 
@@ -248,8 +245,8 @@ func decodeQName(data []byte, offset int) ([]byte, int) {
 	if jumped {
 		return qnamePieces, saveOffset
 	}
-  
-	return qnamePieces, offset  
+
+	return qnamePieces, offset
 }
 
 func extractResponseQuestion(response []byte) (DNSQuestion, int) {
@@ -257,8 +254,8 @@ func extractResponseQuestion(response []byte) (DNSQuestion, int) {
 	// Inital offset is the byte in which the header ends.
 	offset := 12
 
-	qname, newOffset := decodeQName(response, offset)
-  testOffset := newOffset - offset
+	qname, newOffset := decodeName(response, offset)
+	testOffset := newOffset - offset
 	offset = offset + testOffset
 
 	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
@@ -268,7 +265,7 @@ func extractResponseQuestion(response []byte) (DNSQuestion, int) {
 	// NOTE: Re-encoding the QNAME into a byte array to represent the string.This is kind of weird and I may need to change later
 
 	return DNSQuestion{
-		QNAME:  qname,//encodeQName(qname),
+		QNAME:  qname, //encodeQName(qname),
 		QTYPE:  qtype,
 		QCLASS: qclass,
 	}, offset
@@ -289,9 +286,9 @@ func decodeAnswerRData(rdata []byte, qtype uint16, rdlength uint16) string {
 			addressPieces = append(addressPieces, fmt.Sprintf("%d", rdata[i]))
 		}
 		fmt.Println("IPV4 DECODED -> ", strings.Join(addressPieces, "."))
-    return strings.Join(addressPieces, ".")
-	
-  // TYPE NS - Nameserver (TODO Later)
+		return strings.Join(addressPieces, ".")
+
+		// TYPE NS - Nameserver (TODO Later)
 	case 2:
 		fmt.Println("TYPE NS")
 
@@ -313,7 +310,7 @@ func decodeAnswerRData(rdata []byte, qtype uint16, rdlength uint16) string {
 
 // Extract the answer from the response
 func extractResponseAnswer(response []byte, offset int) (DNSRecord, int) {
-	name, newOffset := decodeQName(response, offset)
+	name, newOffset := decodeName(response, offset)
 	offset = newOffset
 	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
 	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
@@ -322,8 +319,7 @@ func extractResponseAnswer(response []byte, offset int) (DNSRecord, int) {
 	rdata := response[offset+10 : offset+10+int(rdlength)]
 	offset += 10 + int(rdlength)
 
-  decodedRdata := decodeAnswerRData(rdata, qtype, rdlength)
-
+	decodedRdata := decodeAnswerRData(rdata, qtype, rdlength)
 
 	return DNSRecord{
 		NAME:     name,
@@ -331,7 +327,7 @@ func extractResponseAnswer(response []byte, offset int) (DNSRecord, int) {
 		CLASS:    qclass,
 		TTL:      ttl,
 		RDLENGTH: rdlength,
-		RDATA:   decodedRdata, 
+		RDATA:    decodedRdata,
 	}, offset
 }
 
@@ -348,7 +344,7 @@ func main() {
 
 	// Send request
 	response := sendRequest(dnsMessageBytes)
-  
+
 	// NOTE: Consider decoding into a DNSMessage struct instance
 	// decode response header
 	responseHeader := extractResponseHeader(response)
@@ -368,14 +364,14 @@ func main() {
 	}
 	fmt.Println("RESPONSE ANSWER: ", answers)
 	fmt.Println("NEW OFFSET: ", offset)
-  
-  // Auth and additionals 
-  auth, offset := extractResponseAnswer(response, offset)
-  fmt.Println("RESPONSE AUTH: ", auth)
-  fmt.Println("OFFSET AFTER AUTH: ", offset)
 
-  additionals, offset := extractResponseAnswer(response, offset)
-  fmt.Println("RESPONSE ADDITIONALS: ", additionals) 
-  
-  fmt.Println("FINAL OFFSET: ", offset)
+	// Auth and additionals
+	auth, offset := extractResponseAnswer(response, offset)
+	fmt.Println("RESPONSE AUTH: ", auth)
+	fmt.Println("OFFSET AFTER AUTH: ", offset)
+
+	additionals, offset := extractResponseAnswer(response, offset)
+	fmt.Println("RESPONSE ADDITIONALS: ", additionals)
+
+	fmt.Println("FINAL OFFSET: ", offset)
 }
