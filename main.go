@@ -49,7 +49,7 @@ type DNSRecord struct {
 	CLASS    uint16
 	TTL      uint32
 	RDLENGTH uint16
-	RDATA    []byte //TODO: maybe change to string later, need to decode this first depending on it's format
+	RDATA    string //TODO: maybe change to string later, need to decode this first depending on it's format
 }
 
 // Struct for the DNS Message
@@ -292,21 +292,30 @@ func testAnswerDecode(data []byte, offset int) ([]byte, int) {
 }
 
 // Decode the RData into a string based on the qtype
-func decodeAnswerRData(rdata []byte, qtype uint16, rdlength uint16, offset int) (string, int) {
+func decodeAnswerRData(rdata []byte, qtype uint16, rdlength uint16) string {
 	// check for the different qtype values to determine how to decode this
-	//A Type
-	switch qtype {
-	// TYPE A - IPV4
-	case 1:
-		fmt.Println("TYPE A")
+	// TODO: Abstract these out to functions later
+	var addressPieces []string
 
-	// TYPE NS - Nameserver (TODO Later)
+	switch qtype {
+
+	// TYPE A - IPV4 (host address)
+	case 1:
+		fmt.Println("TYPE A - aka IPV4 -- Decoding...")
+		for i := range rdlength {
+			addressPieces = append(addressPieces, fmt.Sprintf("%d", rdata[i]))
+		}
+		fmt.Println("IPV4 DECODED -> ", strings.Join(addressPieces, "."))
+		return strings.Join(addressPieces, ".")
+
+		// TYPE NS - Nameserver (TODO Later)
 	case 2:
 		fmt.Println("TYPE NS")
 
 	// TYPE AAAA - IPV6
 	case 28:
 		fmt.Println("TYPE AAAA")
+		// Assuming you just loop and insert colons instead of periods
 
 	// TYPE CNAME - Cannonical name -> points to a domain name that points to the IP address or another CNAME
 	case 5:
@@ -316,7 +325,7 @@ func decodeAnswerRData(rdata []byte, qtype uint16, rdlength uint16, offset int) 
 		fmt.Println("NOT SUPPORTED")
 	}
 
-	return "", 1
+	return ""
 }
 
 // Extract the answer from the response
@@ -330,7 +339,7 @@ func extractResponseAnswer(response []byte, offset int) (DNSRecord, int) {
 	rdata := response[offset+10 : offset+10+int(rdlength)]
 	offset += 10 + int(rdlength)
 
-	decodeAnswerRData(rdata, qtype, rdlength, offset)
+	decodedRdata := decodeAnswerRData(rdata, qtype, rdlength)
 
 	return DNSRecord{
 		NAME:     name,
@@ -338,7 +347,7 @@ func extractResponseAnswer(response []byte, offset int) (DNSRecord, int) {
 		CLASS:    qclass,
 		TTL:      ttl,
 		RDLENGTH: rdlength,
-		RDATA:    rdata,
+		RDATA:    decodedRdata,
 	}, offset
 }
 
@@ -378,4 +387,12 @@ func main() {
 	}
 	fmt.Println("RESPONSE ANSWER: ", answers)
 	fmt.Println("NEW OFFSET: ", offset)
+	// TODO: Next, get the auth and additional settings
+	auth, offset := extractResponseAnswer(response, offset)
+	fmt.Println("Auth: ", auth)
+	fmt.Print("NEW OFFSEWRT AFTER AUTHL ", offset)
+
+	additionals, offset := extractResponseAnswer(response, offset)
+	fmt.Println("additionals: ", additionals)
+	fmt.Print("NEW OFFSEWRT AFTER additionals ", offset)
 }

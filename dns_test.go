@@ -71,3 +71,7 @@ func TestEncodeDNSMessage(t *testing.T) {
 
 // TODO
 //func TestExtractResponseHeader() { }
+
+// TODO
+// test to extract the different parts of the header
+// For the answer / authority / additional sections, just write a seperate test for each even though they use the same functions
