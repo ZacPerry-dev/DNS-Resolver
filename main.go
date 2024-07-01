@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"dns-resolver/dns"
 	"encoding/binary"
 	"fmt"
 	"net"
@@ -14,32 +14,17 @@ import (
     [] Get to work for any host or domain name
       - Includes deocding different data types (IPv6, etc)
       - Updating to run in a loop in case it needs multiple contact points to resolve
+      - Need to figure out how to query any name
     [] Try and read the response into the DNSResponse struct
     [] review but if valid, move functions out to different files for sanity
     [] Update tests (they are commented out for now)
+    [] Refactor structs & functions
 */
 
 /*
 Information for structs was found here:
 	https://datatracker.ietf.org/doc/html/rfc1035#section-4.1.1
 */
-// Struct for DNS Header
-// QR, OPCODE, AA, TC, RD, RA, Z, and RCODE are packed into a "FLAGS" field (2bytes)(16bits)
-type DNSHeader struct {
-	ID      uint16
-	FLAGS   uint16
-	QDCOUNT uint16
-	ANCOUNT uint16
-	NSCOUNT uint16
-	ARCOUNT uint16
-}
-
-// Struct for DNS Question
-type DNSQuestion struct {
-	QNAME  []byte
-	QTYPE  uint16
-	QCLASS uint16
-}
 
 // Represents the Answer, Auth, and Additionals
 type DNSRecord struct {
@@ -48,34 +33,34 @@ type DNSRecord struct {
 	CLASS    uint16
 	TTL      uint32
 	RDLENGTH uint16
-	RDATA    string
+	RDATA    []byte
 }
 
 // Struct for the DNS Message
 type DNSMessage struct {
-	Header   DNSHeader
-	Question DNSQuestion
+	Header   dns.DNSHeader
+	Question dns.DNSQuestion
 }
 
 type DNSResponse struct {
-	Header     DNSHeader
-	Question   DNSQuestion
+	Header     dns.DNSHeader
+	Question   dns.DNSQuestion
 	Answer     DNSRecord
 	Authority  DNSRecord
 	Additional DNSRecord
 }
 
 func createDNSMessage() DNSMessage {
-	header := DNSHeader{
+	header := dns.DNSHeader{
 		ID:      22, //uint16(rand.Intn(65535)), make random at some point. 22 for now
-		FLAGS:   0x0100,
+		FLAGS:   0x0000,
 		QDCOUNT: 1,
 		ANCOUNT: 0,
 		NSCOUNT: 0,
 		ARCOUNT: 0,
 	}
 
-	question := DNSQuestion{
+	question := dns.DNSQuestion{
 		QNAME:  []byte{},
 		QTYPE:  1,
 		QCLASS: 1,
@@ -87,50 +72,12 @@ func createDNSMessage() DNSMessage {
 	}
 }
 
-// Encodes the host name into a byte array with each substrings length prepended to each substring (i.e. 3dns6google3com)
-func encodeQName(hostName string) []byte {
-	hostNameParts := strings.Split(hostName, ".")
-	var formattedHostName []byte
-
-	for _, sub := range hostNameParts {
-		length := byte(len(sub))
-		formattedHostName = append(formattedHostName, length)
-		formattedHostName = append(formattedHostName, sub...)
-	}
-
-	formattedHostName = append(formattedHostName, 0)
-	return formattedHostName
-}
-
-// Encode the header section of the DNS message
-func encodeDNSHeader(header DNSHeader) []byte {
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, header.ID)
-	binary.Write(buf, binary.BigEndian, header.FLAGS)
-	binary.Write(buf, binary.BigEndian, header.QDCOUNT)
-	binary.Write(buf, binary.BigEndian, header.ANCOUNT)
-	binary.Write(buf, binary.BigEndian, header.NSCOUNT)
-	binary.Write(buf, binary.BigEndian, header.ARCOUNT)
-
-	return buf.Bytes()
-}
-
-// Encode the question section of the DNS message
-func encodeDNSQuestion(question DNSQuestion) []byte {
-	buf := new(bytes.Buffer)
-	buf.Write(question.QNAME)
-	binary.Write(buf, binary.BigEndian, question.QTYPE)
-	binary.Write(buf, binary.BigEndian, question.QCLASS)
-
-	return buf.Bytes()
-}
-
 // Encode the DNS Message to be sent
 func encodeDNSMessage(message DNSMessage) []byte {
 	var query []byte
 
-	encodedHeader := encodeDNSHeader(message.Header)
-	encodedQuestion := encodeDNSQuestion(message.Question)
+	encodedHeader := dns.EncodeDNSHeader(message.Header)
+	encodedQuestion := dns.EncodeDNSQuestion(message.Question)
 
 	query = append(query, encodedHeader...)
 	query = append(query, encodedQuestion...)
@@ -141,7 +88,8 @@ func encodeDNSMessage(message DNSMessage) []byte {
 // Send request to the name server
 func sendRequest(message []byte) []byte {
 	// TODO: Don't hard code the IP and port, change later
-	conn, err := net.Dial("udp", "8.8.8.8:53")
+	// 8.8.8.8:53 -> for google testing, set recursion to 1 (FLAGS = 0x0100)
+	conn, err := net.Dial("udp", "192.203.230.10:53")
 	if err != nil {
 		fmt.Println("Error connecting to the socket")
 		os.Exit(1)
@@ -163,54 +111,6 @@ func sendRequest(message []byte) []byte {
 	}
 
 	return buf
-}
-
-// Get the header from the response
-func extractResponseHeader(response []byte) DNSHeader {
-	responseHeader := DNSHeader{
-		ID:      binary.BigEndian.Uint16(response[0:2]),
-		FLAGS:   binary.BigEndian.Uint16(response[2:4]),
-		QDCOUNT: binary.BigEndian.Uint16(response[4:6]),
-		ANCOUNT: binary.BigEndian.Uint16(response[6:8]),
-		NSCOUNT: binary.BigEndian.Uint16(response[8:10]),
-		ARCOUNT: binary.BigEndian.Uint16(response[10:12]),
-	}
-
-	// Extracting the flags
-	QR := (responseHeader.FLAGS >> 15) & 0x1
-	RCODE := responseHeader.FLAGS & 0xF
-
-	// Printing the flags
-	fmt.Println("QR:", QR)
-	fmt.Println("RCODE:", RCODE)
-
-	// Check this is a response
-	if QR != 1 {
-		fmt.Println("Error with the response: QR does not indicate this message is a response (1)...")
-		os.Exit(1)
-	}
-
-	// check for any errors returned within the header
-	switch RCODE {
-	case 1:
-		fmt.Println("RCODE ERROR: 1 (Format Error), Name server was unable to interpret the query...")
-		os.Exit(1)
-	case 2:
-		fmt.Println("RCODE ERROR: 2 (Server Error), Name server was unable to process the query due to a server error...")
-		os.Exit(1)
-	case 3:
-		fmt.Println("RCODE ERROR: 3 (Name Error), Domain referenced in the query does not exist...")
-		os.Exit(1)
-	case 4:
-		fmt.Println("RCODE ERROR: 4 (Not Implemented), The name server does not support this kind of query...")
-		os.Exit(1)
-	case 5:
-		fmt.Println("RCODE ERROR: 5 (Refused), The name server refuses to perform this operation for policy reasons...")
-		os.Exit(1)
-	default:
-	}
-
-	return responseHeader
 }
 
 func decodeName(data []byte, offset int) ([]byte, int) {
@@ -249,28 +149,6 @@ func decodeName(data []byte, offset int) ([]byte, int) {
 	return qnamePieces, offset
 }
 
-func extractResponseQuestion(response []byte) (DNSQuestion, int) {
-
-	// Inital offset is the byte in which the header ends.
-	offset := 12
-
-	qname, newOffset := decodeName(response, offset)
-	testOffset := newOffset - offset
-	offset = offset + testOffset
-
-	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
-	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
-
-	offset += 4
-	// NOTE: Re-encoding the QNAME into a byte array to represent the string.This is kind of weird and I may need to change later
-
-	return DNSQuestion{
-		QNAME:  qname, //encodeQName(qname),
-		QTYPE:  qtype,
-		QCLASS: qclass,
-	}, offset
-}
-
 // Decode the RData into a string based on the qtype
 func decodeAnswerRData(rdata []byte, qtype uint16, rdlength uint16) string {
 	// check for the different qtype values to determine how to decode this
@@ -290,9 +168,9 @@ func decodeAnswerRData(rdata []byte, qtype uint16, rdlength uint16) string {
 
 		// TYPE NS - Nameserver (TODO Later)
 	case 2:
-		fmt.Println("TYPE NS")
+		fmt.Println("---------TYPE NS")
 
-	// TYPE AAAA - IPV6
+		// TYPE AAAA - IPV6
 	case 28:
 		fmt.Println("TYPE AAAA")
 		// Assuming you just loop and insert colons instead of periods
@@ -319,7 +197,7 @@ func extractResponseAnswer(response []byte, offset int) (DNSRecord, int) {
 	rdata := response[offset+10 : offset+10+int(rdlength)]
 	offset += 10 + int(rdlength)
 
-	decodedRdata := decodeAnswerRData(rdata, qtype, rdlength)
+	//decodedRdata := decodeAnswerRData(rdata, qtype, rdlength)
 
 	return DNSRecord{
 		NAME:     name,
@@ -327,13 +205,14 @@ func extractResponseAnswer(response []byte, offset int) (DNSRecord, int) {
 		CLASS:    qclass,
 		TTL:      ttl,
 		RDLENGTH: rdlength,
-		RDATA:    decodedRdata,
+		RDATA:    rdata,
 	}, offset
 }
 
 func main() {
+	// NOTE: may need to change the arg number later depending on how I wanna do this...
 	hostNameArg := os.Args[1]
-	encodedHostName := encodeQName(hostNameArg)
+	encodedHostName := dns.EncodeName(hostNameArg)
 
 	// Create the DNS message
 	message := createDNSMessage()
@@ -345,13 +224,13 @@ func main() {
 	// Send request
 	response := sendRequest(dnsMessageBytes)
 
-	// NOTE: Consider decoding into a DNSMessage struct instance
+	// NOTE: Consider decoding into a DNSMessage struct instance
 	// decode response header
-	responseHeader := extractResponseHeader(response)
+	responseHeader := dns.DecodeDNSHeader(response)
 	fmt.Println("RESPONSE HEADER: ", responseHeader)
 
 	// decode the response question
-	responseQuestion, offset := extractResponseQuestion(response)
+	responseQuestion, offset := dns.DecodeDNSQuestion(response)
 	fmt.Println("RESPONSE QUESTION: ", responseQuestion)
 	fmt.Println("Response Header ANCOUNT: ", responseHeader.ANCOUNT)
 
@@ -365,13 +244,20 @@ func main() {
 	fmt.Println("RESPONSE ANSWER: ", answers)
 	fmt.Println("NEW OFFSET: ", offset)
 
-	// Auth and additionals
 	auth, offset := extractResponseAnswer(response, offset)
-	fmt.Println("RESPONSE AUTH: ", auth)
-	fmt.Println("OFFSET AFTER AUTH: ", offset)
+	fmt.Println("AUTH : ", auth)
+	// Auth and additionals
+	/*
+		auth := make([]DNSRecord, 0)
+		for range responseHeader.NSCOUNT {
+			responseAuth, newOffset := extractResponseAnswer(response, offset)
+			auth = append(auth, responseAuth)
+			offset = newOffset
+		}
+		fmt.Println("Response AUTH: ", auth)
+		fmt.Println("NEW OFFSET (AUTH): ", offset) */
 
 	additionals, offset := extractResponseAnswer(response, offset)
 	fmt.Println("RESPONSE ADDITIONALS: ", additionals)
-
 	fmt.Println("FINAL OFFSET: ", offset)
 }
