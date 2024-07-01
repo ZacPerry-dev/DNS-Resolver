@@ -14,9 +14,9 @@ type DNSMessage struct {
 type DNSResponse struct {
 	Header     DNSHeader
 	Question   DNSQuestion
-	Answer     DNSRecord
-	Authority  DNSRecord
-	Additional DNSRecord
+	Answer     []DNSRecord
+	Authority  []DNSRecord
+	Additional []DNSRecord
 }
 
 func CreateDNSMessage(domainName string) DNSMessage {
@@ -63,7 +63,7 @@ func ResolveDNSRequest(domainName string) string {
 
 	// Send the message / request
 	// 8.8.8.8:53 -> for google testing, set recursion to 1 (FLAGS = 0x0100)
-  // TODO: THIS WILL NEED TO BE IN A LOOP & LOOP THROUGH WHATEVER IPs I HAVE SAVED currently
+	// TODO: THIS WILL NEED TO BE IN A LOOP & LOOP THROUGH WHATEVER IPs I HAVE SAVED currently
 	conn, err := net.Dial("udp", "192.203.230.10:53")
 	if err != nil {
 		fmt.Println("Error connecting to the socket")
@@ -84,31 +84,36 @@ func ResolveDNSRequest(domainName string) string {
 		fmt.Println("Error reading response into buffer")
 		os.Exit(1)
 	}
-  
-  // HEADER // 
+
+	// HEADER //
 	responseHeader := DecodeDNSHeader(buf)
 	fmt.Println("   --- HEADER: ", responseHeader)
-  
-  // QUESTION // 
+
+	// QUESTION //
 	responseQuestion, offset := DecodeDNSQuestion(buf)
 	fmt.Println("   --- QUESTION: ", responseQuestion)
 	fmt.Println("         CURR. OFFSET: ", offset)
-  
-  // ANSWER (MORE TODO HERE) //
-	responseAnswers := make([]DNSRecord, 0)
-	for range responseHeader.ANCOUNT {
-		anw, newOffset := DecodeDNSRecord(buf, offset)
-		responseAnswers = append(responseAnswers, anw)
-		offset = newOffset
+
+	// ANSWER (MORE TODO HERE) //
+	responseAnswers := make([]DNSRecord, responseHeader.ANCOUNT)
+	for i := 0; i < int(responseHeader.ANCOUNT); i++ {
+		responseAnswers[i], offset = DecodeDNSRecord(buf, offset)
 	}
 	fmt.Println("   --- RESPONSE ANSWER: ", responseAnswers)
 	fmt.Println("         CURR. OFFSET: ", offset)
-  
-  // AUTH //
 
+	// AUTH //
+	fmt.Println("STARTING TO DECODE THE AUTH SECTION -- GOD HELP ME.")
+	responseAuth := make([]DNSRecord, responseHeader.NSCOUNT)
+	for i := 0; i < int(responseHeader.NSCOUNT); i++ {
+		responseAuth[i], offset = DecodeDNSRecord(buf, offset)
+		fmt.Println("Response #", i, " :", responseAuth[i])
 
-  // ADDITIONALS//
+	}
+	fmt.Println("   --- RESPONSE AUTH: ", responseAuth)
+	fmt.Println("         CURR. OFFSET: ", offset)
 
+	// ADDITIONALS//
 
 	return ""
 }

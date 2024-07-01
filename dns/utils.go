@@ -2,6 +2,7 @@ package dns
 
 import (
 	"encoding/binary"
+	"fmt"
 	"strings"
 )
 
@@ -29,6 +30,7 @@ func DecodeName(data []byte, offset int) ([]byte, int) {
 
 	for {
 		length := int(data[offset])
+		fmt.Println("                   CURRENT LENGTH___: ", length)
 
 		if length == 0 {
 			qnamePieces = append(qnamePieces, 0)
@@ -49,11 +51,11 @@ func DecodeName(data []byte, offset int) ([]byte, int) {
 		offset++
 		qnamePieces = append(qnamePieces, data[offset:offset+length]...)
 		offset += length
+
 	}
 
-	if jumped {
-		return qnamePieces, saveOffset
+	if !jumped {
+		saveOffset = offset
 	}
-
-	return qnamePieces, offset
+	return qnamePieces, saveOffset - offset
 }

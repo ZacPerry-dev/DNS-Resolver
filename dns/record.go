@@ -53,15 +53,15 @@ func DecodeRData(rdata []byte, qtype uint16, rdlength uint16) string {
 // ALSO there is issues here and idk what yet
 func DecodeDNSRecord(response []byte, offset int) (DNSRecord, int) {
 	name, newOffset := DecodeName(response, offset)
-	offset = newOffset
-	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
-	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
-	ttl := binary.BigEndian.Uint32(response[offset+4 : offset+8])
-	rdlength := binary.BigEndian.Uint16(response[offset+8 : offset+10])
-	rdata := response[offset+10 : offset+10+int(rdlength)]
-	offset += 10 + int(rdlength)
 
-	//decodedRdata := decodeAnswerRData(rdata, qtype, rdlength)
+	fmt.Println("\n\n\nUSING THIS OFFSET IN DECODE DNS RECORD: ", newOffset)
+	qtype := binary.BigEndian.Uint16(response[newOffset : newOffset+2])
+	qclass := binary.BigEndian.Uint16(response[newOffset+2 : newOffset+4])
+	ttl := binary.BigEndian.Uint32(response[newOffset+4 : newOffset+8])
+	rdlength := binary.BigEndian.Uint16(response[newOffset+8 : newOffset+10])
+	rdata := response[newOffset+10 : newOffset+10+int(rdlength)]
+
+	newOffset += 10 + int(rdlength)
 
 	return DNSRecord{
 		NAME:     name,
@@ -70,5 +70,5 @@ func DecodeDNSRecord(response []byte, offset int) (DNSRecord, int) {
 		TTL:      ttl,
 		RDLENGTH: rdlength,
 		RDATA:    rdata,
-	}, offset
+	}, newOffset
 }

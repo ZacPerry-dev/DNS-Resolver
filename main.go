@@ -23,5 +23,5 @@ Information for structs was found here:
 */
 
 func main() {
-  dns.ResolveDNSRequest(os.Args[1])
+	dns.ResolveDNSRequest(os.Args[1])
 }
