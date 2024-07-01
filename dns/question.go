@@ -34,13 +34,12 @@ func DecodeDNSQuestion(response []byte) (DNSQuestion, int) {
 	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
 
 	offset += 4
-	// NOTE: Re-encoding the QNAME into a byte array to represent the string.This is kind of weird and I may need to change later
 
 	return DNSQuestion{
-		QNAME:  qname, //encodeQName(qname),
+		QNAME:  qname,
 		QTYPE:  qtype,
 		QCLASS: qclass,
 	}, offset
 }
 
-// error chekcing
+// Error Checking (TODO)

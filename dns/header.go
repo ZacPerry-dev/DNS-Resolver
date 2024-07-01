@@ -81,4 +81,4 @@ func DecodeDNSHeader(response []byte) DNSHeader {
 	return responseHeader
 }
 
-// error check the header maybe
+// Error Checking (TODO)
