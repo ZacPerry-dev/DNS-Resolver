@@ -54,26 +54,36 @@ func DecodeDNSHeader(response []byte) DNSHeader {
 
 	// Check this is a response
 	if QR != 1 {
-		fmt.Println("Error with the response: QR does not indicate this message is a response (1)...")
+		fmt.Println(
+			"Error with the response: QR does not indicate this message is a response (1)...",
+		)
 		os.Exit(1)
 	}
 
 	// check for any errors returned within the header
 	switch RCODE {
 	case 1:
-		fmt.Println("RCODE ERROR: 1 (Format Error), Name server was unable to interpret the query...")
+		fmt.Println(
+			"RCODE ERROR: 1 (Format Error), Name server was unable to interpret the query...",
+		)
 		os.Exit(1)
 	case 2:
-		fmt.Println("RCODE ERROR: 2 (Server Error), Name server was unable to process the query due to a server error...")
+		fmt.Println(
+			"RCODE ERROR: 2 (Server Error), Name server was unable to process the query due to a server error...",
+		)
 		os.Exit(1)
 	case 3:
 		fmt.Println("RCODE ERROR: 3 (Name Error), Domain referenced in the query does not exist...")
 		os.Exit(1)
 	case 4:
-		fmt.Println("RCODE ERROR: 4 (Not Implemented), The name server does not support this kind of query...")
+		fmt.Println(
+			"RCODE ERROR: 4 (Not Implemented), The name server does not support this kind of query...",
+		)
 		os.Exit(1)
 	case 5:
-		fmt.Println("RCODE ERROR: 5 (Refused), The name server refuses to perform this operation for policy reasons...")
+		fmt.Println(
+			"RCODE ERROR: 5 (Refused), The name server refuses to perform this operation for policy reasons...",
+		)
 		os.Exit(1)
 	default:
 	}

@@ -21,7 +21,7 @@ type DNSResponse struct {
 
 func CreateDNSMessage(domainName string) DNSMessage {
 	header := DNSHeader{
-		ID:      22, //uint16(rand.Intn(65535)), make random at some point. 22 for now
+		ID:      22, // uint16(rand.Intn(65535)), make random at some point. 22 for now
 		FLAGS:   0x0000,
 		QDCOUNT: 1,
 		ANCOUNT: 0,
@@ -56,11 +56,9 @@ func EncodeDNSMessage(message DNSMessage) []byte {
 
 // Send request to the name server
 func ResolveDNSRequest(domainName string) string {
-
 	// Create and encode the DNS Message
 	dnsMessage := CreateDNSMessage(domainName)
 	encodedMessage := EncodeDNSMessage(dnsMessage)
-
 	// Send the message / request
 	// 8.8.8.8:53 -> for google testing, set recursion to 1 (FLAGS = 0x0100)
 	// TODO: THIS WILL NEED TO BE IN A LOOP & LOOP THROUGH WHATEVER IPs I HAVE SAVED currently
@@ -95,25 +93,25 @@ func ResolveDNSRequest(domainName string) string {
 	fmt.Println("         CURR. OFFSET: ", offset)
 
 	// ANSWER (MORE TODO HERE) //
-	responseAnswers := make([]DNSRecord, responseHeader.ANCOUNT)
-	for i := 0; i < int(responseHeader.ANCOUNT); i++ {
-		responseAnswers[i], offset = DecodeDNSRecord(buf, offset)
-	}
+	//responseAnswers := make([]DNSRecord, responseHeader.ANCOUNT)
+	// for i := 0; i < int(responseHeader.ANCOUNT); i++ {
+	responseAnswers, offset := DecodeDNSRecord(buf, offset)
+	//}
 	fmt.Println("   --- RESPONSE ANSWER: ", responseAnswers)
 	fmt.Println("         CURR. OFFSET: ", offset)
+	/*
+		// AUTH //
+		fmt.Println("STARTING TO DECODE THE AUTH SECTION -- GOD HELP ME.")
+		responseAuth := make([]DNSRecord, responseHeader.NSCOUNT)
+		for i := 0; i < int(responseHeader.NSCOUNT); i++ {
+			responseAuth[i], offset = DecodeDNSRecord(buf, offset)
+			fmt.Println("Response #", i, " :", responseAuth[i])
 
-	// AUTH //
-	fmt.Println("STARTING TO DECODE THE AUTH SECTION -- GOD HELP ME.")
-	responseAuth := make([]DNSRecord, responseHeader.NSCOUNT)
-	for i := 0; i < int(responseHeader.NSCOUNT); i++ {
-		responseAuth[i], offset = DecodeDNSRecord(buf, offset)
-		fmt.Println("Response #", i, " :", responseAuth[i])
-
-	}
-	fmt.Println("   --- RESPONSE AUTH: ", responseAuth)
-	fmt.Println("         CURR. OFFSET: ", offset)
-
-	// ADDITIONALS//
+		}
+		fmt.Println("   --- RESPONSE AUTH: ", responseAuth)
+		fmt.Println("         CURR. OFFSET: ", offset)
+	*/
+	// ADDITIONALS TODO: //
 
 	return ""
 }
