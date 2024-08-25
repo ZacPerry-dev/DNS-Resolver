@@ -1,6 +1,7 @@
 package dns
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"os"
@@ -59,6 +60,7 @@ func ResolveDNSRequest(domainName string) string {
 	// Create and encode the DNS Message
 	dnsMessage := CreateDNSMessage(domainName)
 	encodedMessage := EncodeDNSMessage(dnsMessage)
+
 	// Send the message / request
 	// 8.8.8.8:53 -> for google testing, set recursion to 1 (FLAGS = 0x0100)
 	// TODO: THIS WILL NEED TO BE IN A LOOP & LOOP THROUGH WHATEVER IPs I HAVE SAVED currently
@@ -83,35 +85,21 @@ func ResolveDNSRequest(domainName string) string {
 		os.Exit(1)
 	}
 
+	reader := bytes.NewReader(buf)
+
 	// HEADER //
-	responseHeader := DecodeDNSHeader(buf)
+	responseHeader := DecodeDNSHeader(reader)
 	fmt.Println("   --- HEADER: ", responseHeader)
 
 	// QUESTION //
-	responseQuestion, offset := DecodeDNSQuestion(buf)
-	fmt.Println("   --- QUESTION: ", responseQuestion)
-	fmt.Println("         CURR. OFFSET: ", offset)
+	responseQuestion := DecodeDNSQuestion(reader)
+	fmt.Println("   ---QUESTION: ", responseQuestion)
 
 	// ANSWER (MORE TODO HERE) //
 	//responseAnswers := make([]DNSRecord, responseHeader.ANCOUNT)
-	// for i := 0; i < int(responseHeader.ANCOUNT); i++ {
-	responseAnswers, offset := DecodeDNSRecord(buf, offset)
-	//}
-	fmt.Println("   --- RESPONSE ANSWER: ", responseAnswers)
-	fmt.Println("         CURR. OFFSET: ", offset)
-	/*
-		// AUTH //
-		fmt.Println("STARTING TO DECODE THE AUTH SECTION -- GOD HELP ME.")
-		responseAuth := make([]DNSRecord, responseHeader.NSCOUNT)
-		for i := 0; i < int(responseHeader.NSCOUNT); i++ {
-			responseAuth[i], offset = DecodeDNSRecord(buf, offset)
-			fmt.Println("Response #", i, " :", responseAuth[i])
-
-		}
-		fmt.Println("   --- RESPONSE AUTH: ", responseAuth)
-		fmt.Println("         CURR. OFFSET: ", offset)
-	*/
-	// ADDITIONALS TODO: //
+	for i := 0; i < int(responseHeader.ANCOUNT); i++ {
+		break
+	}
 
 	return ""
 }

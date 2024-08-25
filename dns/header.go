@@ -31,26 +31,24 @@ func EncodeDNSHeader(header DNSHeader) []byte {
 
 // decode the header
 // Get the header from the response
-func DecodeDNSHeader(response []byte) DNSHeader {
-	responseHeader := DNSHeader{
-		ID:      binary.BigEndian.Uint16(response[0:2]),
-		FLAGS:   binary.BigEndian.Uint16(response[2:4]),
-		QDCOUNT: binary.BigEndian.Uint16(response[4:6]),
-		ANCOUNT: binary.BigEndian.Uint16(response[6:8]),
-		NSCOUNT: binary.BigEndian.Uint16(response[8:10]),
-		ARCOUNT: binary.BigEndian.Uint16(response[10:12]),
-	}
+func DecodeDNSHeader(reader *bytes.Reader) *DNSHeader {
+	var responseHeader DNSHeader
+	binary.Read(reader, binary.BigEndian, &responseHeader.ID)
+	binary.Read(reader, binary.BigEndian, &responseHeader.FLAGS)
+	binary.Read(reader, binary.BigEndian, &responseHeader.QDCOUNT)
+	binary.Read(reader, binary.BigEndian, &responseHeader.ANCOUNT)
+	binary.Read(reader, binary.BigEndian, &responseHeader.NSCOUNT)
+	binary.Read(reader, binary.BigEndian, &responseHeader.ARCOUNT)
 
 	// Extracting the flags
 	QR := (responseHeader.FLAGS >> 15) & 0x1
 	RCODE := responseHeader.FLAGS & 0xF
 
-	// Printing the flags
-	fmt.Println("QR:", QR)
-	fmt.Println("RCODE:", RCODE)
-
 	// This decides how many name server resource records are in the authority records section
+	fmt.Println("QDCOUNT", responseHeader.QDCOUNT)
+	fmt.Println("ANCOUNT", responseHeader.ANCOUNT)
 	fmt.Println("NSCOUNT: ", responseHeader.NSCOUNT)
+	fmt.Println("ARCOUNT: ", responseHeader.ARCOUNT)
 
 	// Check this is a response
 	if QR != 1 {
@@ -88,7 +86,5 @@ func DecodeDNSHeader(response []byte) DNSHeader {
 	default:
 	}
 
-	return responseHeader
+	return &responseHeader
 }
-
-// Error Checking (TODO)

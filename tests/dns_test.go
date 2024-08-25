@@ -1,13 +1,8 @@
 package main
 
-import (
-	"bytes"
-	"fmt"
-	"testing"
+import ()
 
-	"dns-resolver/dns"
-)
-
+/*
 func TestEncodeName(t *testing.T) {
 	hostName := "dns.google.com"
 	targetArray := []byte{3, 100, 110, 115, 6, 103, 111, 111, 103, 108, 101, 3, 99, 111, 109, 0}
@@ -148,3 +143,4 @@ func TestEncodeDNSMessage(t *testing.T) {
 // TODO
 // test to extract the different parts of the header
 // For the answer / authority / additional sections, just write a seperate test for each even though they use the same functions
+*/

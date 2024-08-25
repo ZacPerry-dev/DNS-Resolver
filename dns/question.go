@@ -22,23 +22,11 @@ func EncodeDNSQuestion(question DNSQuestion) []byte {
 }
 
 // decoding
-func DecodeDNSQuestion(response []byte) (DNSQuestion, int) {
-	// Inital offset is the byte in which the header ends.
-	offset := 12
+func DecodeDNSQuestion(reader *bytes.Reader) *DNSQuestion {
+	var responseQuestion DNSQuestion
+	responseQuestion.QNAME = []byte(DecodeDomainName(reader))
+	binary.Read(reader, binary.BigEndian, &responseQuestion.QTYPE)
+	binary.Read(reader, binary.BigEndian, &responseQuestion.QCLASS)
 
-	//qname, newOffset := DecodeHostName(response, offset)
-	qname, newOffset := DecodeDomainName(response, offset)
-	offset = offset + newOffset
-	qtype := binary.BigEndian.Uint16(response[offset : offset+2])
-	qclass := binary.BigEndian.Uint16(response[offset+2 : offset+4])
-
-	offset += 4
-
-	return DNSQuestion{
-		QNAME:  []byte(qname),
-		QTYPE:  qtype,
-		QCLASS: qclass,
-	}, offset
+	return &responseQuestion
 }
-
-// Error Checking (TODO)

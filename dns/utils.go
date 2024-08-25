@@ -1,8 +1,8 @@
 package dns
 
 import (
-	"encoding/binary"
-	"fmt"
+	"bytes"
+	"io"
 	"strings"
 )
 
@@ -22,40 +22,35 @@ func EncodeName(hostName string) []byte {
 	return formattedHostName
 }
 
-// NOTE: There is issues here and idk what yet
-func DecodeName(data []byte, offset int) ([]byte, int) {
-	var qnamePieces []byte
-	saveOffset := offset
-	jumped := false
+// TODO: Handler Pointer Name
+func DecodeDomainName(reader *bytes.Reader) string {
+	var domainName bytes.Buffer
 
 	for {
-		length := int(data[offset])
-		fmt.Println("                   CURRENT LENGTH___: ", length)
+		// length for next piece of the domain name
+		length, _ := reader.ReadByte()
 
+		//check for pointer
+
+		// If we are at the end of the domain name, break
 		if length == 0 {
-			qnamePieces = append(qnamePieces, 0)
-			offset++
 			break
 		}
 
-		// Check if length indicates a pointer (first two bits are 11)
-		if length&0xC0 == 0xC0 {
-			if !jumped {
-				saveOffset = offset + 2 // Save offset before jumping
-			}
-			jumped = true
-			offset = int(binary.BigEndian.Uint16(data[offset:offset+2])) & 0x3FFF
-			continue
-		}
-
-		offset++
-		qnamePieces = append(qnamePieces, data[offset:offset+length]...)
-		offset += length
-
+		// If a normal part of the name, just decode as usual (reading into byte array and appending a "."
+		piece := make([]byte, length)
+		io.ReadFull(reader, piece)
+		domainName.Write(piece)
+		domainName.WriteByte('.')
 	}
 
-	if !jumped {
-		saveOffset = offset
-	}
-	return qnamePieces, saveOffset - offset
+	domainNameString := domainName.String()
+	finalIndex := len(domainNameString) - 1
+
+	return domainNameString[:finalIndex]
+}
+
+func GetDomainPointer(reader *bytes.Reader, length byte) string {
+
+	return ""
 }
